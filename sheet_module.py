@@ -1,8 +1,27 @@
 import datetime
+import os
+import json
+import base64
+import gspread
+from google.oauth2.service_account import Credentials
 
 def append_to_sheet(text, analysis, user_id):
-    # 假設未來串接 gspread 或其他 Google Sheet API
-    # 現階段模擬寫入一筆標準化格式資料
+    # 解析 base64 JSON 憑證
+    creds_json = base64.b64decode(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")).decode()
+    creds_dict = json.loads(creds_json)
+
+    # 建立授權憑證
+    creds = Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+
+    # 連接 Google Sheet
+    client = gspread.authorize(creds)
+    sheet = client.open_by_key(os.getenv("GOOGLE_SHEET_ID"))
+    worksheet = sheet.worksheet(os.getenv("SHEET_TAB_NAME", "Sheet1"))
+
+    # 組合資料列
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     row = [
         now,
@@ -12,7 +31,7 @@ def append_to_sheet(text, analysis, user_id):
         analysis.get("類別", ""),
         analysis.get("情緒", "")
     ]
-    print("👉 寫入一筆資料：")
-    print("| 日期時間 | 使用者ID | 原始輸入 | 金額 | 類別 | 情緒 |")
-    print("|----------|-----------|-----------|------|------|------|")
-    print("| " + " | ".join(str(cell) for cell in row) + " |")
+
+    # 寫入資料
+    worksheet.append_row(row, value_input_option="USER_ENTERED")
+    print("✅ 寫入 Google Sheet 成功：", row)
